@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Financiero - Gráfica de Velas</title>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 20px;
+    }
+    #chart-container {
+      max-width: 900px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    select {
+      margin-bottom: 15px;
+      padding: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #ddd;
+    }
+    th, td {
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #333;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Dashboard Financiero</h2>
+  <label>Selecciona un ticker:</label>
+  <select id="tickerSelect"></select>
+
+  <div id="chart-container">
+    <div id="chart"></div>
+
+    <table id="infoTable">
+      <thead>
+        <tr>
+          <th>Ticker</th>
+          <th>Último Cierre</th>
+          <th>Probabilidad de Subida</th>
+          <th>Riesgo</th>
+          <th>Volatilidad</th>
+          <th>Recomendación</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    let chart;
+    let dataJSON;
+
+    // Cargar ranking.json
+    fetch('ranking.json')
+      .then(response => response.json())
+      .then(data => {
+        dataJSON = data;
+        const select = document.getElementById('tickerSelect');
+
+        // Poblar selector de tickers
+        dataJSON.ranking.forEach(stock => {
+          const option = document.createElement('option');
+          option.value = stock.symbol;
+          option.textContent = `${stock.symbol} - ${stock.recommendation}`;
+          select.appendChild(option);
+        });
+
+        // Mostrar el primero por defecto
+        renderChart(dataJSON.ranking[0].ohlc);
+        renderTable(dataJSON.ranking[0]);
+
+        // Escuchar cambios
+        select.addEventListener('change', () => {
+          const selected = dataJSON.ranking.find(s => s.symbol === select.value);
+          renderChart(selected.ohlc);
+          renderTable(selected);
+        });
+      })
+      .catch(err => console.error("Error cargando ranking.json:", err));
+
+    // Renderizar gráfica
+    function renderChart(ohlcData) {
+      const seriesData = ohlcData.map(d => ({
+        x: new Date(d.date),
+        y: [d.open, d.high, d.low, d.close]
+      }));
+
+      const options = {
+        chart: { type: 'candlestick', height: 500 },
+        title: { text: 'Histórico de Precios', align: 'left' },
+        xaxis: { type: 'datetime' },
+        yaxis: { tooltip: { enabled: true } },
+        series: [{ data: seriesData }]
+      };
+
+      if (chart) {
+        chart.updateOptions(options);
+      } else {
+        chart = new ApexCharts(document.querySelector("#chart"), options);
+        chart.render();
+      }
+    }
+
+    // Renderizar tabla con info
+    function renderTable(stock) {
+      const tbody = document.querySelector("#infoTable tbody");
+      tbody.innerHTML = `
+        <tr>
+          <td>${stock.symbol}</td>
+          <td>${stock.last_close.toFixed(2)}</td>
+          <td>${(stock.probability_up * 100).toFixed(2)}%</td>
+          <td>${stock.risk_level}</td>
+          <td>${(stock.risk_daily_vol * 100).toFixed(2)}%</td>
+          <td>${stock.recommendation}</td>
+        </tr>
+      `;
+    }
+  </script>
+
+</body>
+</html>
